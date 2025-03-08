@@ -19,6 +19,7 @@ var (
     Chicken Location = "{\"x\":0,\"y\":1}"
     CopperMine Location = "{\"x\":2,\"y\":0}"
     IronMine Location = "{\"x\":1,\"y\":7}"
+    CoalMine Location = "{\"x\":1,\"y\":6}"
     Forge Location = "{\"x\":1,\"y\":5}"
     WeaponSmith Location = "{\"x\":2,\"y\":1}"
     Bank Location = "{\"x\":4,\"y\":1}"
@@ -28,6 +29,7 @@ var (
     YellowSlime Location = "{\"x\":4,\"y\":-1}"
     BlueSlime Location = "{\"x\":2,\"y\":-1}"
     RedSlime Location = "{\"x\":1,\"y\":-1}"
+    Mushmush Location = "{\"x\":5,\"y\":3}"
     MonsterTask Location = "{\"x\":1,\"y\":2}"
     Sunflower Location = "{\"x\":2,\"y\":2}"
     Alchemist Location = "{\"x\":2,\"y\":3}"
@@ -76,6 +78,9 @@ type ToonDetails struct {
         TaskTotal int `json:"task_total"`
         TaskProgress int `json:"task_progress"`
         WoodcuttingLevel int `json:"woodcutting_level"`
+        MiningLevel int `json:"mining_level"`
+        FishingLevel int `json:"fishing_level"`
+        AlchemyLevel int `json:"alchemy_level"`
         Inventory []InventoryItem `json:"inventory"`
 }
 
@@ -165,8 +170,14 @@ func GatherThe(Item1 string, Place1 Location, ToonName string) {
     }
 }
 
-func GatherAndCraftThe(Item1 string, Place1 Location, Item2 string, Place2 Location, ToonName string) {
-    for c := 1; c>0; c++ {
+func GatherAndCraftThe(Item1 string, Place1 Location, Item2 string, Place2 Location, ToonName string, HowManyLoops int) {
+    var l int;
+    if HowManyLoops <= 0 {
+        l = 10000
+    } else {
+        l = HowManyLoops
+    }
+    for c := 0; c<l; c++ {
         artifactsMove("my/"+ToonName+"/action/move",Place1);
         for m := AmountOf(Item1, ToonName); m<30; m++ {
             artifactsPost("my/"+ToonName+"/action/gathering","");
@@ -291,10 +302,25 @@ func main() {
     }
 
     if doesToon1Exist && doesToon2Exist && doesToon3Exist && doesToon4Exist && doesToon5Exist {
-        go GatherAndCraftThe("spruce_wood", SpruceWood, "spruce_plank", Sawmill, toon2Name);
-        go GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, toon3Name);
-        go GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, toon5Name);
-        go GatherAndCraftThe("ash_wood", AshWood, "ash_plank", Sawmill, toon4Name);
-        GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, toon1Name);
+        go func(){
+            GatherAndCraftThe("spruce_wood", SpruceWood, "spruce_plank", Sawmill, toon2Name, 100);
+        }();
+        go func(){
+            GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, toon3Name,50);
+            GatherThe("sunflower", Sunflower, toon3Name);
+        }();
+        go func(){
+            GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, toon5Name,100);
+            GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, toon5Name,-1);
+        }();
+        go func(){
+            FightThe(Chicken, toon4Name, 800);
+            FightThe(YellowSlime, toon4Name, 800);
+        }();
+        func(){
+            FightThe( Mushmush , toon1Name , 500 );
+            GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, toon1Name, 100);
+            GatherThe("coal", CoalMine, toon1Name);
+        }()
     }
 }
