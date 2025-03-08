@@ -36,6 +36,15 @@ var (
     GudgeonPond Location = "{\"x\":4,\"y\":2}"
 )
 
+type ToonName string
+const (
+    Troy ToonName = "Troy"
+    Faraday ToonName = "Faraday"
+    Rainboom ToonName = "Rainboom"
+    Ikhor ToonName = "Ikhor"
+    Crydelia ToonName = "Crydelia"
+)
+
 type InventoryItem struct {
     Slot int `json:"slot"`
     Code string `json:"code"`
@@ -69,11 +78,12 @@ type ToonAction struct {
 }
 
 type ToonDetails struct {
-        Name    string `json:"name"`
+        Name    ToonName `json:"name"`
         Account string `json:"account"`
         Level   int `json:"level"`
         XPos    int `json:"x"`
         YPos    int `json:"y"`
+        Cooldown int `json:"cooldown"`
         Task    string `json:"task"`
         TaskTotal int `json:"task_total"`
         TaskProgress int `json:"task_progress"`
@@ -127,19 +137,19 @@ func artifactsRest(ACTION string, PATH string, PAYLOAD string) []byte {
 
 }
 
-func BankDeposit(ToonName string) {
+func BankDeposit(ToonName ToonName) {
     td := GetInfoFor(ToonName);
-    artifactsMove("my/"+ToonName+"/action/move",Bank);
+    artifactsMove("my/"+string(ToonName)+"/action/move",Bank);
     for i:= 0; i<len(td.Inventory); i++ {
         if td.Inventory[i].Quantity > 0 {
-            artifactsPost("my/"+ToonName+"/action/bank/deposit","{\"code\":\""+td.Inventory[i].Code+"\",\"quantity\":"+strconv.Itoa(td.Inventory[i].Quantity)+"}");
+            artifactsPost("my/"+string(ToonName)+"/action/bank/deposit","{\"code\":\""+td.Inventory[i].Code+"\",\"quantity\":"+strconv.Itoa(td.Inventory[i].Quantity)+"}");
         }
     }
-    artifactsMove("my/"+ToonName+"/action/move", Location("{\"x\":"+strconv.Itoa(td.XPos)+",\"y\":"+strconv.Itoa(td.YPos)+"}")); 
+    artifactsMove("my/"+string(ToonName)+"/action/move", Location("{\"x\":"+strconv.Itoa(td.XPos)+",\"y\":"+strconv.Itoa(td.YPos)+"}")); 
 
 }
 
-func FightThe(MonsterLocation Location, ToonName string, HowMany int){
+func FightThe(MonsterLocation Location, ToonName ToonName, HowMany int){
     numberToFight := HowMany;
     numberFought := 0;
     if HowMany < 0 {
@@ -147,12 +157,12 @@ func FightThe(MonsterLocation Location, ToonName string, HowMany int){
         numberToFight = ThisToon.TaskTotal
         numberFought = ThisToon.TaskProgress
     }
-    fmt.Println(ToonName+" Fights!", numberFought, numberToFight, MonsterLocation);
-    artifactsPost("my/"+ToonName+"/action/rest","");
-    artifactsMove("my/"+ToonName+"/action/move",MonsterLocation);
+    fmt.Println(ToonName," Fights!", numberFought, numberToFight, MonsterLocation);
+    artifactsPost("my/"+string(ToonName)+"/action/rest","");
+    artifactsMove("my/"+string(ToonName)+"/action/move",MonsterLocation);
     for c := numberFought; c<=numberToFight; c++ {
-        artifactsPost("my/"+ToonName+"/action/fight","");
-        artifactsPost("my/"+ToonName+"/action/rest","");
+        artifactsPost("my/"+string(ToonName)+"/action/fight","");
+        artifactsPost("my/"+string(ToonName)+"/action/rest","");
         // TO-DO: This Inventory check should be handled by the Rest Handler
         if c % 25 == 24 {
             BankDeposit(ToonName);
@@ -160,17 +170,17 @@ func FightThe(MonsterLocation Location, ToonName string, HowMany int){
     }
 }
 
-func GatherThe(Item1 string, Place1 Location, ToonName string) {
+func GatherThe(Item1 string, Place1 Location, ToonName ToonName) {
     for c := 1; c>0; c++ {
-        artifactsMove("my/"+ToonName+"/action/move",Place1);
+        artifactsMove("my/"+string(ToonName)+"/action/move",Place1);
         for m := AmountOf(Item1, ToonName); m<50; m++ {
-            artifactsPost("my/"+ToonName+"/action/gathering","");
+            artifactsPost("my/"+string(ToonName)+"/action/gathering","");
         }
         BankDeposit(ToonName);
     }
 }
 
-func GatherAndCraftThe(Item1 string, Place1 Location, Item2 string, Place2 Location, ToonName string, HowManyLoops int) {
+func GatherAndCraftThe(Item1 string, Place1 Location, Item2 string, Place2 Location, ToonName ToonName, HowManyLoops int) {
     var l int;
     if HowManyLoops <= 0 {
         l = 10000
@@ -178,12 +188,12 @@ func GatherAndCraftThe(Item1 string, Place1 Location, Item2 string, Place2 Locat
         l = HowManyLoops
     }
     for c := 0; c<l; c++ {
-        artifactsMove("my/"+ToonName+"/action/move",Place1);
+        artifactsMove("my/"+string(ToonName)+"/action/move",Place1);
         for m := AmountOf(Item1, ToonName); m<30; m++ {
-            artifactsPost("my/"+ToonName+"/action/gathering","");
+            artifactsPost("my/"+string(ToonName)+"/action/gathering","");
         }
-        artifactsMove("my/"+ToonName+"/action/move",Place2);
-        artifactsPost("my/"+ToonName+"/action/crafting","{\"code\":\""+Item2+"\",\"quantity\":3}");
+        artifactsMove("my/"+string(ToonName)+"/action/move",Place2);
+        artifactsPost("my/"+string(ToonName)+"/action/crafting","{\"code\":\""+Item2+"\",\"quantity\":3}");
         if AmountOf(Item2, ToonName) >= 20 {
             BankDeposit(ToonName);
         }
@@ -191,7 +201,7 @@ func GatherAndCraftThe(Item1 string, Place1 Location, Item2 string, Place2 Locat
     }
 }
 
-func AmountOf(itemName string, ToonName string) int {
+func AmountOf(itemName string, ToonName ToonName) int {
     ThisToon := GetInfoFor(ToonName);
     idx := slices.IndexFunc(ThisToon.Inventory, func(i InventoryItem) bool { return i.Code == itemName })
     var AmountOfItem int;
@@ -203,7 +213,7 @@ func AmountOf(itemName string, ToonName string) int {
     return AmountOfItem
 }
 
-func GetInfoFor(ToonName string) ToonDetails {
+func GetInfoFor(ToonName ToonName) ToonDetails {
     myToons := artifactsGet("my/characters");
     var toons Toon
     json.Unmarshal(myToons, &toons)
@@ -211,21 +221,21 @@ func GetInfoFor(ToonName string) ToonDetails {
     return toons.Data[idx];
 };
 
-func RunMonsterTasks(ToonName string) {
+func RunMonsterTasks(ToonName ToonName) {
     for c := 1; c>0; c++ {
         //Check For Task
         t := GetInfoFor(ToonName);
         if t.Task == "" {
-            artifactsMove("my/"+ToonName+"/action/move",MonsterTask);
+            artifactsMove("my/"+string(ToonName)+"/action/move",MonsterTask);
             // Get New Task
-            artifactsPost("my/"+ToonName+"/action/task/new","");
+            artifactsPost("my/"+string(ToonName)+"/action/task/new","");
             t = GetInfoFor(ToonName);
         }
         
         if t.Task != "" || t.TaskProgress == t.TaskTotal {
-            artifactsMove("my/"+ToonName+"/action/move",MonsterTask);
-            artifactsPost("my/"+ToonName+"/action/task/complete","");
-            artifactsPost("my/"+ToonName+"/action/task/new","");
+            artifactsMove("my/"+string(ToonName)+"/action/move",MonsterTask);
+            artifactsPost("my/"+string(ToonName)+"/action/task/complete","");
+            artifactsPost("my/"+string(ToonName)+"/action/task/new","");
             t = GetInfoFor(ToonName);
         }
             
@@ -248,11 +258,25 @@ func RunMonsterTasks(ToonName string) {
 
 }
 
+//TO-DO: Check for DateTime Object `cooldown_expiration`
+// If that isn't present use Cooldown as a fallback
+// Or potentially if that isn't present just send it
+// Cooldown appears to just be the duration of the last cooldown
+// Even if it was in the past and is over
+func EnsureOffCooldown(Toons Toon, ToonName ToonName) {
+    idx := slices.IndexFunc(Toons.Data, func(td ToonDetails) bool { return td.Name == ToonName })
+    InitialSleepBuffer := Toons.Data[idx].Cooldown
+    if InitialSleepBuffer > 0 {
+        fmt.Println(ToonName," needs to wait ",InitialSleepBuffer," before they are ready to rumble!");
+        time.Sleep(time.Duration(InitialSleepBuffer)*time.Second);
+    } else {
+        fmt.Println(ToonName+" is Ready-To-Go!");
+    }
+}
 
 func main() {
     fmt.Println("Troy's Artifacts Runner")
-    ARTIFACTS_API_KEY := os.Getenv("ARTIFACTS_API_KEY")
-    fmt.Println("ARTIFACTS_API_KEY:", ARTIFACTS_API_KEY)
+    os.Getenv("ARTIFACTS_API_KEY")
     myToons := artifactsGet("my/characters");
     var toons Toon
     err := json.Unmarshal(myToons, &toons)
@@ -261,66 +285,34 @@ func main() {
     }
     fmt.Println(toons);
     
-    var doesToon1Exist bool;
-    toon1Name := "Troy";
-    var doesToon2Exist bool;
-    toon2Name := "Faraday";
-    var doesToon3Exist bool;
-    toon3Name := "Rainboom";
-    var doesToon4Exist bool;
-    toon4Name := "Ikhor";
-    var doesToon5Exist bool;
-    toon5Name := "Crydelia";
-
-    for _, toon := range toons.Data {
-        if toon.Name == toon1Name {
-            doesToon1Exist = true;
-        }
-        if toon.Name == toon2Name {
-            doesToon2Exist = true;
-        }
-        if toon.Name == toon3Name {
-            doesToon3Exist = true;
-        }
-        if toon.Name == toon4Name {
-            doesToon4Exist = true;
-        }
-        if toon.Name == toon5Name {
-            doesToon5Exist = true;
-        }
-    }
-    
-    if !doesToon1Exist {
-        toon1 := artifactsPost("characters/create","{\n  \"name\": \""+toon1Name+"\",\n  \"skin\": \"men2\"\n}");
-        fmt.Println(string(toon1));
-        doesToon1Exist=true;
-    }
-    if !doesToon2Exist {
-        toon2 := artifactsPost("characters/create","{\n  \"name\": \""+toon1Name+"\",\n  \"skin\": \"men1\"\n}");
-        fmt.Println(string(toon2));
-        doesToon2Exist=true;
-    }
-
-    if doesToon1Exist && doesToon2Exist && doesToon3Exist && doesToon4Exist && doesToon5Exist {
-        go func(){
-            GatherAndCraftThe("spruce_wood", SpruceWood, "spruce_plank", Sawmill, toon2Name, 100);
-        }();
-        go func(){
-            GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, toon3Name,50);
-            GatherThe("sunflower", Sunflower, toon3Name);
-        }();
-        go func(){
-            GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, toon5Name,100);
-            GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, toon5Name,-1);
-        }();
-        go func(){
-            FightThe(Chicken, toon4Name, 800);
-            FightThe(YellowSlime, toon4Name, 800);
-        }();
-        func(){
-            FightThe( Mushmush , toon1Name , 500 );
-            GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, toon1Name, 100);
-            GatherThe("coal", CoalMine, toon1Name);
-        }()
-    }
+    go func(t ToonName){
+        EnsureOffCooldown(toons, t);
+        BankDeposit(t);
+        GatherAndCraftThe("spruce_wood", SpruceWood, "spruce_plank", Sawmill, t, 100);
+    }(Faraday);
+    go func(t ToonName){
+        EnsureOffCooldown(toons, t);
+        BankDeposit(t);
+        GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, t,50);
+        GatherThe("sunflower", Sunflower, t);
+    }(Rainboom);
+    go func(t ToonName){
+        EnsureOffCooldown(toons, t);
+        BankDeposit(t);
+        GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, t,100);
+        GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, t,-1);
+    }(Crydelia);
+    go func(t ToonName){
+        EnsureOffCooldown(toons, t);
+        BankDeposit(t);
+        FightThe(Chicken, t, 800);
+        FightThe(YellowSlime, t, 800);
+    }(Ikhor);
+    func(t ToonName){
+        EnsureOffCooldown(toons, t);
+        BankDeposit(t);
+        FightThe( Mushmush , t , 500 );
+        GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, t, 100);
+        GatherThe("coal", CoalMine, t);
+    }(Troy)
 }
