@@ -1,20 +1,18 @@
 package main
 
 import (
-    "fmt"
     "os"
     "strings"
     "strconv"
     "encoding/json"
     "io/ioutil"
-    "log"
     "net/http"
     "time"
     "slices"
 )
-
+var logger = GetLogger();
 type Location string
-var (
+const (
     Spawn Location = "{\"x\":0,\"y\":0}"
     Chicken Location = "{\"x\":0,\"y\":1}"
     CopperMine Location = "{\"x\":2,\"y\":0}"
@@ -25,6 +23,7 @@ var (
     Bank Location = "{\"x\":4,\"y\":1}"
     AshWood Location = "{\"x\":-1,\"y\":0}"
     SpruceWood Location = "{\"x\":1,\"y\":9}"
+    BirchWood Location = "{\"x\":-1,\"y\":6}"
     Sawmill Location = "{\"x\":-2,\"y\":-3}"
     YellowSlime Location = "{\"x\":4,\"y\":-1}"
     BlueSlime Location = "{\"x\":2,\"y\":-1}"
@@ -115,22 +114,24 @@ func artifactsRest(ACTION string, PATH string, PAYLOAD string) []byte {
     res, err := client.Do(req);
 
     if err != nil {
-        fmt.Print(err.Error())
+        logger.Error(err.Error())
         os.Exit(1)
     }
 
     responseData, err := ioutil.ReadAll(res.Body)
     if err != nil {
-        log.Fatal(err)
+        logger.Fatal(err)
     }
 
-    fmt.Println(res.Status, ACTION, PATH);
+    logger.Info(res.Status, ACTION, PATH);
 
-    if strings.Contains(PATH, "action") {
-        var ta ToonAction;
-        json.Unmarshal(responseData, &ta);
-        fmt.Println("Waiting for",ta.Data.Cooldown.RemainingSeconds);
-        time.Sleep(time.Duration(ta.Data.Cooldown.RemainingSeconds)*time.Second);
+    if res.StatusCode != 490 {
+    	if strings.Contains(PATH, "action") {
+        	var ta ToonAction;
+        	json.Unmarshal(responseData, &ta);
+        	logger.Info("SLEEP","ToonName",ta.Data.Character.Name,"seconds",ta.Data.Cooldown.RemainingSeconds);
+        	time.Sleep(time.Duration(ta.Data.Cooldown.RemainingSeconds)*time.Second);
+    	}
     }
 
     return responseData
@@ -157,7 +158,7 @@ func FightThe(MonsterLocation Location, ToonName ToonName, HowMany int){
         numberToFight = ThisToon.TaskTotal
         numberFought = ThisToon.TaskProgress
     }
-    fmt.Println(ToonName," Fights!", numberFought, numberToFight, MonsterLocation);
+    logger.Info("FIGHT", "ToonName", ToonName, numberFought, numberToFight, MonsterLocation);
     artifactsPost("my/"+string(ToonName)+"/action/rest","");
     artifactsMove("my/"+string(ToonName)+"/action/move",MonsterLocation);
     for c := numberFought; c<=numberToFight; c++ {
@@ -250,8 +251,8 @@ func RunMonsterTasks(ToonName ToonName) {
             var mapLoc MapLocation;
             monsterLocation := artifactsGet("maps?content_code="+t.Task+"&size=1");
             json.Unmarshal(monsterLocation, &mapLoc);
-            fmt.Println("monsterLocation:", string(monsterLocation));
-            fmt.Println(mapLoc);
+            logger.Debug("monsterLocation:", string(monsterLocation));
+            logger.Debug(mapLoc);
             FightThe(Location("{\"x\":"+strconv.Itoa(mapLoc.Data[0].XPos)+",\"y\":"+strconv.Itoa(mapLoc.Data[0].YPos)+"}"), ToonName, -1); 
         }
     }
@@ -267,15 +268,15 @@ func EnsureOffCooldown(Toons Toon, ToonName ToonName) {
     idx := slices.IndexFunc(Toons.Data, func(td ToonDetails) bool { return td.Name == ToonName })
     InitialSleepBuffer := Toons.Data[idx].Cooldown
     if InitialSleepBuffer > 0 {
-        fmt.Println(ToonName," needs to wait ",InitialSleepBuffer," before they are ready to rumble!");
+        logger.Debug(ToonName," needs to wait ",InitialSleepBuffer," before they are ready to rumble!");
         time.Sleep(time.Duration(InitialSleepBuffer)*time.Second);
     } else {
-        fmt.Println(ToonName+" is Ready-To-Go!");
+        logger.Debug(ToonName+" is Ready-To-Go!");
     }
 }
 
 func main() {
-    fmt.Println("Troy's Artifacts Runner")
+    logger.Info("Troy's Artifacts Runner")
     os.Getenv("ARTIFACTS_API_KEY")
     myToons := artifactsGet("my/characters");
     var toons Toon
@@ -283,18 +284,18 @@ func main() {
     if err != nil {
         panic(err)
     }
-    fmt.Println(toons);
+    logger.Debug(toons);
     
     go func(t ToonName){
         EnsureOffCooldown(toons, t);
         BankDeposit(t);
-        GatherAndCraftThe("spruce_wood", SpruceWood, "spruce_plank", Sawmill, t, 100);
+        GatherAndCraftThe("birch_wood", BirchWood, "birch_plank", Sawmill, t, 100);
     }(Faraday);
     go func(t ToonName){
         EnsureOffCooldown(toons, t);
         BankDeposit(t);
-        GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, t,50);
         GatherThe("sunflower", Sunflower, t);
+        GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, t,50);
     }(Rainboom);
     go func(t ToonName){
         EnsureOffCooldown(toons, t);
