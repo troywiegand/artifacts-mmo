@@ -93,8 +93,10 @@ type ToonDetails struct {
         Inventory []InventoryItem `json:"inventory"`
 }
 
-func artifactsMove(PATH string, BODY Location) []byte {
-    return artifactsRest("POST", PATH, string(BODY));
+func artifactsMove(td ToonDetails, BODY Location) []byte {
+    // TO-DO: Don't Try To Move If Already There
+    p := "my/"+string(td.Name)+"/action/move";
+    return artifactsRest("POST", p, string(BODY));
 };
 
 func artifactsPost(PATH string, BODY string) []byte {
@@ -140,27 +142,27 @@ func artifactsRest(ACTION string, PATH string, PAYLOAD string) []byte {
 
 func BankDeposit(ToonName ToonName) {
     td := GetInfoFor(ToonName);
-    artifactsMove("my/"+string(ToonName)+"/action/move",Bank);
+    artifactsMove(td,Bank);
     for i:= 0; i<len(td.Inventory); i++ {
         if td.Inventory[i].Quantity > 0 {
             artifactsPost("my/"+string(ToonName)+"/action/bank/deposit","{\"code\":\""+td.Inventory[i].Code+"\",\"quantity\":"+strconv.Itoa(td.Inventory[i].Quantity)+"}");
         }
     }
-    artifactsMove("my/"+string(ToonName)+"/action/move", Location("{\"x\":"+strconv.Itoa(td.XPos)+",\"y\":"+strconv.Itoa(td.YPos)+"}")); 
+    artifactsMove(td, Location("{\"x\":"+strconv.Itoa(td.XPos)+",\"y\":"+strconv.Itoa(td.YPos)+"}")); 
 
 }
 
 func FightThe(MonsterLocation Location, ToonName ToonName, HowMany int){
     numberToFight := HowMany;
     numberFought := 0;
+    ThisToon := GetInfoFor(ToonName);
     if HowMany < 0 {
-        ThisToon := GetInfoFor(ToonName);
         numberToFight = ThisToon.TaskTotal
         numberFought = ThisToon.TaskProgress
     }
     logger.Info("FIGHT", "ToonName", ToonName, numberFought, numberToFight, MonsterLocation);
     artifactsPost("my/"+string(ToonName)+"/action/rest","");
-    artifactsMove("my/"+string(ToonName)+"/action/move",MonsterLocation);
+    artifactsMove(ThisToon,MonsterLocation);
     for c := numberFought; c<=numberToFight; c++ {
         artifactsPost("my/"+string(ToonName)+"/action/fight","");
         artifactsPost("my/"+string(ToonName)+"/action/rest","");
@@ -173,7 +175,7 @@ func FightThe(MonsterLocation Location, ToonName ToonName, HowMany int){
 
 func GatherThe(Item1 string, Place1 Location, ToonName ToonName) {
     for c := 1; c>0; c++ {
-        artifactsMove("my/"+string(ToonName)+"/action/move",Place1);
+        artifactsMove(GetInfoFor(ToonName),Place1);
         for m := AmountOf(Item1, ToonName); m<50; m++ {
             artifactsPost("my/"+string(ToonName)+"/action/gathering","");
         }
@@ -188,12 +190,13 @@ func GatherAndCraftThe(Item1 string, Place1 Location, Item2 string, Place2 Locat
     } else {
         l = HowManyLoops
     }
+    td := GetInfoFor(ToonName);
     for c := 0; c<l; c++ {
-        artifactsMove("my/"+string(ToonName)+"/action/move",Place1);
+        artifactsMove(td,Place1);
         for m := AmountOf(Item1, ToonName); m<30; m++ {
             artifactsPost("my/"+string(ToonName)+"/action/gathering","");
         }
-        artifactsMove("my/"+string(ToonName)+"/action/move",Place2);
+        artifactsMove(td,Place2);
         artifactsPost("my/"+string(ToonName)+"/action/crafting","{\"code\":\""+Item2+"\",\"quantity\":3}");
         if AmountOf(Item2, ToonName) >= 20 {
             BankDeposit(ToonName);
@@ -227,14 +230,14 @@ func RunMonsterTasks(ToonName ToonName) {
         //Check For Task
         t := GetInfoFor(ToonName);
         if t.Task == "" {
-            artifactsMove("my/"+string(ToonName)+"/action/move",MonsterTask);
+            artifactsMove(t,MonsterTask);
             // Get New Task
             artifactsPost("my/"+string(ToonName)+"/action/task/new","");
             t = GetInfoFor(ToonName);
         }
         
         if t.Task != "" || t.TaskProgress == t.TaskTotal {
-            artifactsMove("my/"+string(ToonName)+"/action/move",MonsterTask);
+            artifactsMove(t,MonsterTask);
             artifactsPost("my/"+string(ToonName)+"/action/task/complete","");
             artifactsPost("my/"+string(ToonName)+"/action/task/new","");
             t = GetInfoFor(ToonName);
