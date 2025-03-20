@@ -26,12 +26,14 @@ CopperMine Location = Location{XPos:2, YPos:0}
 IronMine Location = Location{XPos:1, YPos:7}
 CoalMine Location = Location{XPos:1, YPos:6}
 Forge Location = Location{XPos:1, YPos:5}
+Kitchen Location = Location{XPos:1, YPos:1}
 WeaponSmith Location = Location{XPos:2, YPos:1}
 Bank Location = Location{XPos:4, YPos:1}
 AshWood Location = Location{XPos:-1, YPos:0}
 SpruceWood Location = Location{XPos:1, YPos:9}
 BirchWood Location = Location{XPos:-1, YPos:6}
 Sawmill Location = Location{XPos:-2, YPos:-3}
+GreenSlime Location = Location{XPos:0, YPos:-1}
 YellowSlime Location = Location{XPos:4, YPos:-1}
 BlueSlime Location = Location{XPos:2, YPos:-1}
 RedSlime Location = Location{XPos:1, YPos:-1}
@@ -40,6 +42,9 @@ MonsterTask Location = Location{XPos:1, YPos:2}
 Sunflower Location = Location{XPos:2, YPos:2}
 Alchemist Location = Location{XPos:2, YPos:3}
 GudgeonPond Location = Location{XPos:4, YPos:2}
+Wolf Location = Location{XPos:-2, YPos:1}
+FlyingSerpent Location = Location{XPos:5, YPos:4}
+Trader Location = Location{XPos:4, YPos:13}
 )
 
 func (l Location) String() string {
@@ -191,6 +196,55 @@ func GatherThe(Item1 string, Place1 Location, ToonName ToonName) {
     }
 }
 
+func GatherAndTradeThe(Item1 string, Place1 Location, ToonName ToonName, HowManyLoops int) {
+    var numberToGather int;
+    var numberGathered int;
+    ThisToon := GetInfoFor(ToonName);
+    if HowManyLoops < 0 {
+        numberToGather = ThisToon.TaskTotal
+        numberGathered = ThisToon.TaskProgress
+    } else {
+	numberToGather = 10000
+	numberGathered = 0
+    }
+    td := GetInfoFor(ToonName);
+    for c := numberGathered; c<numberToGather; c+=30 {
+        artifactsMove(td,Place1);
+        for m := AmountOf(Item1, ToonName); m<30; m++ {
+            artifactsPost("my/"+string(ToonName)+"/action/gathering","");
+        }
+        artifactsMove(td,Trader);
+	ThisToon = GetInfoFor(ToonName);
+	RemainingTrade := ThisToon.TaskTotal - ThisToon.TaskProgress
+	AmountToTrade := min(RemainingTrade,30)
+        artifactsPost("my/"+string(ToonName)+"/action/task/trade","{\"code\":\""+Item1+"\",\"quantity\":"+strconv.Itoa(AmountToTrade)+"}");
+    }
+}
+
+func GatherAndCraftAndTradeThe(Item1 string, Place1 Location, Item2 string, Place2 Location, ToonName ToonName, HowManyLoops int) {
+    var l int;
+    if HowManyLoops <= 0 {
+        l = 10000
+    } else {
+        l = HowManyLoops
+    }
+    td := GetInfoFor(ToonName);
+    for c := 0; c<l; c++ {
+        artifactsMove(td,Place1);
+        for m := AmountOf(Item1, ToonName); m<80; m++ {
+            artifactsPost("my/"+string(ToonName)+"/action/gathering","");
+        }
+        artifactsMove(td,Place2);
+        artifactsPost("my/"+string(ToonName)+"/action/crafting","{\"code\":\""+Item2+"\",\"quantity\":80}");
+        artifactsMove(td,Trader);
+	ThisToon := GetInfoFor(ToonName);
+	RemainingTrade := ThisToon.TaskTotal - ThisToon.TaskProgress
+	AmountToTrade := min(RemainingTrade,80)
+        artifactsPost("my/"+string(ToonName)+"/action/task/trade","{\"code\":\""+Item2+"\",\"quantity\":"+strconv.Itoa(AmountToTrade)+"}");
+            
+    }
+}
+
 func GatherAndCraftThe(Item1 string, Place1 Location, Item2 string, Place2 Location, ToonName ToonName, HowManyLoops int) {
     var l int;
     if HowManyLoops <= 0 {
@@ -232,6 +286,35 @@ func GetInfoFor(ToonName ToonName) ToonDetails {
     idx := slices.IndexFunc(toons.Data, func(td ToonDetails) bool { return td.Name == ToonName })
     return toons.Data[idx];
 };
+
+func RunItemTasks(ToonName ToonName) {
+    for c := 1; c>0; c++ {
+        //Check For Task
+        t := GetInfoFor(ToonName);
+        if t.Task == "" {
+            artifactsMove(t,Trader);
+            // Get New Task
+            artifactsPost("my/"+string(ToonName)+"/action/task/new","");
+            t = GetInfoFor(ToonName);
+        }
+        
+        if t.Task != "" || t.TaskProgress == t.TaskTotal {
+            artifactsMove(t,Trader);
+            artifactsPost("my/"+string(ToonName)+"/action/task/complete","");
+            artifactsPost("my/"+string(ToonName)+"/action/task/new","");
+            t = GetInfoFor(ToonName);
+        }
+        
+	//TO-DO: Split on task _ as iron_ore !== iron_rocks
+        var mapLoc MapLocation;
+	lookup := strings.Split(t.Task,"_")[0]
+        monsterLocation := artifactsGet("maps?content_code="+lookup+"&size=1");
+        json.Unmarshal(monsterLocation, &mapLoc);
+        logger.Debug("monsterLocation:"+string(monsterLocation));
+        GatherAndTradeThe(t.Task, Location{XPos: mapLoc.Data[0].XPos,YPos:mapLoc.Data[0].YPos}, ToonName, -1); 
+    }
+
+}
 
 func RunMonsterTasks(ToonName ToonName) {
     for c := 1; c>0; c++ {
@@ -304,31 +387,35 @@ func main() {
     go func(t ToonName){
         EnsureOffCooldown(toons, t);
         BankDeposit(t);
+        GatherAndCraftAndTradeThe("ash_wood", AshWood, "ash_plank", Sawmill, t, -1);
         GatherAndCraftThe("birch_wood", BirchWood, "birch_plank", Sawmill, t, 100);
     }(Faraday);
     go func(t ToonName){
         EnsureOffCooldown(toons, t);
+        //artifactsPost("my/"+string(t)+"/action/task/trade","{\"code\":\"gudgeon\",\"quantity\":67}");
         BankDeposit(t);
+	RunItemTasks(t);
+        GatherAndTradeThe("gudgeon", GudgeonPond, t, -1);
         GatherThe("sunflower", Sunflower, t);
         GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, t,50);
     }(Rainboom);
     go func(t ToonName){
         EnsureOffCooldown(toons, t);
         BankDeposit(t);
-        GatherAndCraftThe("copper_ore", CopperMine, "copper", Forge, t,100);
-        GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, t,-1);
+	RunItemTasks(t);
+	GatherAndTradeThe("iron_ore", IronMine,t,-1);
+	GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, t,-1);
     }(Crydelia);
     go func(t ToonName){
         EnsureOffCooldown(toons, t);
         BankDeposit(t);
+        FightThe(FlyingSerpent, t, -1);
         FightThe(Chicken, t, 800);
-        FightThe(YellowSlime, t, 800);
     }(Ikhor);
     func(t ToonName){
         EnsureOffCooldown(toons, t);
         BankDeposit(t);
-        FightThe( Mushmush , t , 500 );
-        GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, t, 100);
+        FightThe( Wolf , t , -1);
         GatherThe("coal", CoalMine, t);
     }(Troy)
 }
