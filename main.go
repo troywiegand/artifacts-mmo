@@ -124,7 +124,7 @@ func BankDeposit(ToonName ToonName) {
     artifactsMove(td,Bank);
     for i:= 0; i<len(td.Inventory); i++ {
         if td.Inventory[i].Quantity > 0 {
-            artifactsPost("my/"+string(ToonName)+"/action/bank/deposit","{\"code\":\""+td.Inventory[i].Code+"\",\"quantity\":"+strconv.Itoa(td.Inventory[i].Quantity)+"}");
+            artifactsPost("my/"+string(ToonName)+"/action/bank/deposit/item","[{\"code\":\""+td.Inventory[i].Code+"\",\"quantity\":"+strconv.Itoa(td.Inventory[i].Quantity)+"}]");
         }
     }
     artifactsMove(td, Location{XPos:td.XPos, YPos:td.YPos}); 
@@ -236,6 +236,37 @@ func GatherAndCraftThe(Item1 string, Place1 Location, Item2 string, Place2 Locat
         }
             
     }
+}
+
+func FromBankCraftThe(Item1 string, Item2 string, Place2 Location, ToonName ToonName) {
+    logger.Info("BANK/CRAFT", "ToonName", ToonName, "Item", Item1, "Item2", Item2);
+    td := GetInfoFor(ToonName);
+    // Check Items in Bank
+    var bank BankInventory;
+    rawbank := artifactsGet("my/bank/items?item_code="+Item2);
+    json.Unmarshal(rawbank, &bank);
+    // Get recipe
+    var item ItemDetails;
+    rawitem := artifactsGet("items/"+Item2);
+    json.Unmarshal(rawitem, &item);
+    // loop math
+    var numberToCraft = item.Data.Craft.Items[0].Quantity;
+    var numberInBank = bank.Data[0].Quantity;
+    var Loops = numberInBank / numberToCraft;
+
+
+    for l:=0; l<Loops; l++ {
+    // bank deposit
+        BankDeposit(ToonName);    
+        artifactsMove(td,Bank);
+    // grab items
+        artifactsPost("my/"+string(ToonName)+"/action/bank/withdraw/item","[{\"code\":\""+Item2+"\",\"quantity\":"+strconv.Itoa(100)+"}]");
+    // craft bank deposit
+        artifactsMove(td,Place2);
+        artifactsPost("my/"+string(ToonName)+"/action/crafting","{\"code\":\""+Item2+"\",\"quantity\":"+strconv.Itoa(100/numberToCraft)+"}");
+        BankDeposit(ToonName);
+    }
+            
 }
 
 func AmountOf(itemName string, ToonName ToonName) int {
