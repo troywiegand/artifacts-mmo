@@ -25,6 +25,7 @@ FlyingSerpent Location = Location{XPos:5, YPos:4}
 CopperMine Location = Location{XPos:2, YPos:0}
 IronMine Location = Location{XPos:1, YPos:7}
 CoalMine Location = Location{XPos:1, YPos:6}
+GoldMine Location = Location{XPos:6, YPos:-3}
 // Lumbering
 AshWood Location = Location{XPos:-1, YPos:0}
 SpruceWood Location = Location{XPos:1, YPos:9}

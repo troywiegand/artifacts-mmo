@@ -1,6 +1,7 @@
 package main
 
 import (
+    "fmt"
     "os"
     "strings"
     "strconv"
@@ -13,19 +14,26 @@ import (
 )
 var logger = GetLogger();
 
-type ToonName string
-const (
-    Troy ToonName = "Troy"
-    Faraday ToonName = "Faraday"
-    Rainboom ToonName = "Rainboom"
-    Ikhor ToonName = "Ikhor"
-    Crydelia ToonName = "Crydelia"
-)
 
 type InventoryItem struct {
     Slot int `json:"slot"`
     Code string `json:"code"`
     Quantity int `json:"quantity"`
+}
+func (i InventoryItem) String() string {
+    return fmt.Sprintf("{\"code\": \"%s\", \"quantity\": %d}", i.Code, i.Quantity)
+}
+
+type ItemDetails struct {
+    Data struct{
+        Craft struct{
+            Items []InventoryItem `json:items`
+        } `json:craft`
+    } `json:data`
+}
+
+type BankInventory struct {
+    Data []InventoryItem `json:data`
 }
 
 type Monster struct {
@@ -36,37 +44,6 @@ type Monster struct {
 
 type MapLocation struct {
     Data []Location `json:"data"`
-}
-
-type Toon struct {
-    Data []ToonDetails `json:"data"`
-}
-
-type ToonAction struct {
-    Data struct{
-        Cooldown struct{
-            RemainingSeconds float32 `json:"remaining_seconds"`
-        } `json:"cooldown"`
-        Character ToonDetails `json:"character"`
-    } `json:"data"`
-}
-
-type ToonDetails struct {
-        Name    ToonName `json:"name"`
-        Account string `json:"account"`
-        Level   int `json:"level"`
-        XPos    int `json:"x"`
-        YPos    int `json:"y"`
-        Cooldown int `json:"cooldown"`
-        CooldownExpiration string `json:"cooldown_expiration"`
-        Task    string `json:"task"`
-        TaskTotal int `json:"task_total"`
-        TaskProgress int `json:"task_progress"`
-        WoodcuttingLevel int `json:"woodcutting_level"`
-        MiningLevel int `json:"mining_level"`
-        FishingLevel int `json:"fishing_level"`
-        AlchemyLevel int `json:"alchemy_level"`
-        Inventory []InventoryItem `json:"inventory"`
 }
 
 func artifactsMove(td ToonDetails, BODY Location) []byte {
@@ -397,33 +374,43 @@ func main() {
     logger.Debug(toons);
     
     go func(t ToonName){
-        EnsureOffCooldown(toons, t);
-        BankDeposit(t);
-        for true {
-            FightThe(Chicken, t, 100);
-            GatherAndCraftThe("birch_wood", BirchWood, "birch_plank", Sawmill, t, 100);
-        }
+        idx := slices.IndexFunc(toons.Data, func(td ToonDetails) bool { return td.Name == t });
+        td := toons.Data[idx];
+        td.EnsureOffCooldown();
+        td.BankDeposit();
+        td.GatherAndCraftThe("spruce_wood", SpruceWood, "spruce_plank", Sawmill, -1);
+        td.FightThe(Chicken, 100);
     }(Faraday);
     go func(t ToonName){
-        EnsureOffCooldown(toons, t);
-        BankDeposit(t);
-        GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, t,-1);
+        idx := slices.IndexFunc(toons.Data, func(td ToonDetails) bool { return td.Name == t });
+        td := toons.Data[idx];
+        td.EnsureOffCooldown();
+        td.BankDeposit();
+        td.GatherThe("gudgeon", GudgeonPond,true);
+        td.GatherAndCraftThe("sunflower", Sunflower, "small_health_potion", Alchemist,-1);
     }(Rainboom);
     go func(t ToonName){
-        EnsureOffCooldown(toons, t);
-        BankDeposit(t);
-        GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, t,-1);
+        idx := slices.IndexFunc(toons.Data, func(td ToonDetails) bool { return td.Name == t });
+        td := toons.Data[idx];
+        td.EnsureOffCooldown();
+        td.BankDeposit();
+        td.GatherAndCraftThe("iron_ore", IronMine, "iron_bar", Forge,-1);
     }(Crydelia);
     go func(t ToonName){
-        EnsureOffCooldown(toons, t);
-        BankDeposit(t);
-        GatherAndCraftThe("iron_ore", IronMine, "iron", Forge, t,-1);
-        FightThe(Chicken, t, 800);
+        idx := slices.IndexFunc(toons.Data, func(td ToonDetails) bool { return td.Name == t });
+        td := toons.Data[idx];
+        td.EnsureOffCooldown();
+        td.BankDeposit();
+        td.GatherAndCraftThe("iron_ore", IronMine, "iron_bar", Forge,-1);
+        td.GatherAndCraftThe("copper_ore", CopperMine, "copper_bar", Forge,-1);
+        td.FightThe(Chicken, 800);
     }(Ikhor);
     func(t ToonName){
-        EnsureOffCooldown(toons, t);
-        BankDeposit(t);
-        FightThe( Cow , t , -1);
-        GatherThe("coal", CoalMine, t, true);
+        idx := slices.IndexFunc(toons.Data, func(td ToonDetails) bool { return td.Name == t });
+        td := toons.Data[idx];
+        td.EnsureOffCooldown();
+        td.BankDeposit();
+        td.FightThe(Chicken, -1);
+        td.GatherAndCraftThe("spruce_wood", SpruceWood, "spruce_plank", Sawmill, -1);
     }(Troy)
 }
