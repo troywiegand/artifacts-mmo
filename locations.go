@@ -41,6 +41,9 @@ MonsterTask Location = Location{XPos:1, YPos:2}
 ItemTask Location = Location{XPos:4, YPos:13}
 // Fishing
 GudgeonPond Location = Location{XPos:4, YPos:2}
+ShrimpPond Location = Location{XPos:5, YPos:2}
+TroutPond Location = Location{XPos:7, YPos:12}
+BassPond Location = Location{XPos:6, YPos:12}
 // Alchemy
 Sunflower Location = Location{XPos:2, YPos:2};
 Bank Location = Location{XPos:4, YPos:1}

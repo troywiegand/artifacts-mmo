@@ -51,11 +51,11 @@ type Toon struct {
 func (td ToonDetails) moveTo(BODY Location) []byte {
     // TO-DO: Don't Try To Move If Already There
     p := "my/"+string(td.Name)+"/action/move";
+    fmt.Println(td.Name, BODY.String());
     return artifactsRest("POST", p, BODY.String());
 };
 
 func (td ToonDetails) BankDeposit() {
-    td.moveTo(Bank);
     t := GetInfoFor(td.Name);
     if len(t.Inventory) > 0 {
         inv := "";
@@ -65,15 +65,14 @@ func (td ToonDetails) BankDeposit() {
                 inv += ","
             }
         }
-        if inv == "" {
-            inv = "[]";
-        } else {
+        if inv != "" {
+            td.moveTo(Bank);
             inv = "[" + inv[:len(inv)-1] + "]";
+            fmt.Println(inv)
+            artifactsPost("my/"+string(td.Name)+"/action/bank/deposit/item",inv);
+            t.moveTo(Location{XPos:td.XPos, YPos:td.YPos});
         }
-        fmt.Println(inv)
-        artifactsPost("my/"+string(td.Name)+"/action/bank/deposit/item",inv);
     }
-    t.moveTo(Location{XPos:td.XPos, YPos:td.YPos});
 }
 
 // Check for DateTime Object `cooldown_expiration`
