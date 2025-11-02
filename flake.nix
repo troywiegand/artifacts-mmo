@@ -11,6 +11,10 @@
         buildInputs = with pkgs; [
           go
         ];
+
+        shellHook = ''
+          export name="";
+        '';
       };
     }
   );
