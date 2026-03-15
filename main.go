@@ -365,12 +365,31 @@ func main() {
     }
     logger.Info("Troy's Artifacts Runner")
     os.Getenv("ARTIFACTS_API_KEY")
+	logger.Info("about to try to get stuff");
     myToons := artifactsGet("my/characters");
     var toons Toon
+	logger.Info("about to unmarshal");
     err := json.Unmarshal(myToons, &toons)
     if err != nil {
         panic(err)
     }
+
+	if len(toons.Data) < 5 {
+		logger.Warn("Unable to find any Characters. Attempting to Create");
+		artifactsPost("/characters/create","{\"name\":\"Troy\",\"skin\":\"men2\"}");
+		artifactsPost("/characters/create","{\"name\":\"Ikhor\",\"skin\":\"men3\"}");
+		artifactsPost("/characters/create","{\"name\":\"Rainboom\",\"skin\":\"women1\"}");
+		artifactsPost("/characters/create","{\"name\":\"Crydelia\",\"skin\":\"women2\"}");
+		artifactsPost("/characters/create","{\"name\":\"Faraday\",\"skin\":\"men1\"}");
+    	myToons := artifactsGet("my/characters");
+    	var toons Toon
+    	err2 := json.Unmarshal(myToons, &toons)
+		if err2 != nil {
+        	panic(err)
+		}
+	}
+
+	logger.Info("About to log out toons");
     logger.Debug(toons);
     
     go func(t ToonName){
@@ -378,7 +397,7 @@ func main() {
         td := toons.Data[idx];
         td.EnsureOffCooldown();
         td.BankDeposit();
-        td.GatherAndCraftThe("birch_wood", BirchWood, "birch_plank", Sawmill, -1);
+        td.GatherAndCraftThe("ash_wood", AshWood, "ash_plank", Sawmill, -1);
         td.FightThe(Chicken, 100);
     }(Faraday);
     go func(t ToonName){
@@ -386,7 +405,7 @@ func main() {
         td := toons.Data[idx];
         td.EnsureOffCooldown();
         td.BankDeposit();
-        td.GatherThe("trout", TroutPond,true);
+        td.GatherThe("gudgeon", GudgeonPond,true);
         td.GatherAndCraftThe("sunflower", Sunflower, "small_health_potion", Alchemist,-1);
     }(Rainboom);
     go func(t ToonName){
@@ -394,7 +413,7 @@ func main() {
         td := toons.Data[idx];
         td.EnsureOffCooldown();
         td.BankDeposit();
-        td.GatherThe("coal", CoalMine,true);
+        td.GatherThe("copper", CopperMine,true);
         td.GatherAndCraftThe("iron_ore", IronMine, "iron_bar", Forge,-1);
     }(Crydelia);
     go func(t ToonName){
@@ -402,8 +421,7 @@ func main() {
         td := toons.Data[idx];
         td.EnsureOffCooldown();
         td.BankDeposit();
-        td.GatherThe("coal", CoalMine,true);
-        td.GatherAndCraftThe("iron_ore", IronMine, "iron_bar", Forge,-1);
+        td.GatherThe("copper", CopperMine,true);
         td.FightThe(Chicken, 800);
     }(Ikhor);
     func(t ToonName){
@@ -412,7 +430,5 @@ func main() {
         td.EnsureOffCooldown();
         td.BankDeposit();
         td.FightThe(Chicken, -1);
-        td.GatherAndCraftThe("birch_wood", BirchWood, "birch_plank", Sawmill, -1);
-        td.GatherAndCraftThe("spruce_wood", SpruceWood, "spruce_plank", Sawmill, -1);
     }(Troy)
 }
